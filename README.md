@@ -87,8 +87,8 @@ After verifying SSH, we are going to verify our firewall. Here is the command to
 Your firewall output should say active, showing the configurations were applied.
 
 Now let's verify password policy configurations, here are the grep commands to do so:
- - *grep '^' /etc/security/pwquality.conf*
- - *grep '^' /etc/security/pwquality.conf*
+ - *grep '^minlen' /etc/security/pwquality.conf*
+ - *grep '^retry' /etc/security/pwquality.conf*
 
 ![ansible9](https://github.com/user-attachments/assets/0b40f262-9096-4c5e-bb87-6bd7925b10a8)
 
