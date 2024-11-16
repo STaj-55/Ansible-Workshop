@@ -39,7 +39,8 @@ This will allow us to define our managed nodes, in our situation localhost, so A
 
 Now in the same directory we are going to create our CIS Benchmark playbook. You can either write down the CIS Benchmarks with the text editor of your choice, or you can pull the yaml file I created on my github. The choice is yours...
 
-After creating the playbook full of our configurations, we can now run the playbook to apply these configurations to our machine.
+Here a command to run to install the playbook file to your system:
+ - *wget https://raw.githubusercontent.com/STaj-55/Ansible-Workshop/main/CIS_Benchmarks.yml*
 
 Here is the explanation of each of our security configruations and why:
  - **Disabled Unused Filesystems**: Disabling unused filesystems reduces the system's attack surface by removing unnecessary components.
