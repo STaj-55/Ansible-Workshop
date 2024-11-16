@@ -1,0 +1,144 @@
+- name: Apply CIS Benchmark Security Configurations
+  hosts: servers
+  become: yes
+  tasks:
+
+    # Section 1: Filesystem Configuration
+    - name: Disable unused filesystems (freevxfs, jffs2, hfs, hfsplus, squashfs)
+      lineinfile:
+        path: /etc/modprobe.d/CIS.conf
+        line: "install {{ item }} /bin/true"
+        create: yes
+      loop:
+        - freevxfs
+        - jffs2
+        - hfs
+        - hfsplus
+        - squashfs
+
+    # Section 2: Secure SSH Configuration
+    - name: Ensure SSH Protocol is set to 2
+      lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: '^#?Protocol'
+        line: 'Protocol 2'
+        create: yes
+
+    - name: Disable SSH root login
+      lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: '^#?PermitRootLogin'
+        line: 'PermitRootLogin no'
+        create: yes
+
+    - name: Ensure SSH PermitEmptyPasswords is disabled
+      lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: '^#?PermitEmptyPasswords'
+        line: 'PermitEmptyPasswords no'
+        create: yes
+
+    - name: Ensure SSH IgnoreRhosts is enabled
+      lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: '^#?IgnoreRhosts'
+        line: 'IgnoreRhosts yes'
+        create: yes
+
+    - name: Restart SSH service to apply changes
+      service:
+        name: sshd
+        state: restarted
+
+    # Section 3: Firewall Configuration (UFW)
+    - name: Ensure UFW firewall is installed
+      apt:
+        name: ufw
+        state: present
+
+    - name: Enable UFW firewall
+      ufw:
+        state: enabled
+
+    # Section 4: Password Policy Configuration
+    - name: Set password minimum length to 12 characters
+      lineinfile:
+        path: /etc/security/pwquality.conf
+        regexp: '^#?minlen'
+        line: 'minlen = 12'
+        create: yes
+
+    - name: Set password retry limit to 3
+      lineinfile:
+        path: /etc/security/pwquality.conf
+        regexp: '^#?retry'
+        line: 'retry = 3'
+        create: yes
+
+    # Section 5: Banner and Message of the Day (MOTD)
+    - name: Configure /etc/motd with security message
+      copy:
+        dest: /etc/motd
+        content: |
+          Unauthorized access to this system is prohibited.
+          All activities are monitored and logged.
+        owner: root
+        group: root
+        mode: '0644'
+
+    - name: Configure /etc/issue with security message
+      copy:
+        dest: /etc/issue
+        content: |
+          Unauthorized access to this system is prohibited.
+          All activities are monitored and logged.
+        owner: root
+        group: root
+        mode: '0644'
+
+    - name: Configure /etc/issue.net with security message
+      copy:
+        dest: /etc/issue.net
+        content: |
+          Unauthorized access to this system is prohibited.
+          All activities are monitored and logged.
+        owner: root
+        group: root
+        mode: '0644'
+
+    # Section 6: Network Settings - Enable SYN Cookies
+    - name: Enable TCP SYN Cookies
+      sysctl:
+        name: net.ipv4.tcp_syncookies
+        value: '1'
+        state: present
+        reload: yes
+
+    # Section 7: File Permissions for Important Files
+    - name: Set permissions on /etc/passwd
+      file:
+        path: /etc/passwd
+        owner: root
+        group: root
+        mode: '0644'
+
+    - name: Set permissions on /etc/shadow
+      file:
+        path: /etc/shadow
+        owner: root
+        group: shadow
+        mode: '0640'
+
+    - name: Set permissions on /etc/gshadow
+      file:
+        path: /etc/gshadow
+        owner: root
+        group: shadow
+        mode: '0640'
+
+    - name: Set permissions on /etc/group
+      file:
+        path: /etc/group
+        owner: root
+        group: root
+        mode: '0644'
