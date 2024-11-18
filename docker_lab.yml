@@ -1,0 +1,234 @@
+- name: Set up Docker Containers and Apply CIS Benchmarks
+  hosts: localhost
+  become: yes
+  tasks:
+
+    # Create Docker Network
+    - name: Create Docker Network
+      community.docker.docker_network:
+        name: ansible_lab_net
+        state: present
+
+    # Start Docker Containers with Ubuntu
+    - name: Start Docker Container server1
+      community.docker.docker_container:
+        name: server1
+        image: ubuntu:latest
+        networks: 
+          - name: ansible_lab_net
+        command: ["sleep", "infinity"]
+        state: started
+        privileged: true
+      become: yes
+      become_user: root
+
+    - name: Start Docker Container server2
+      community.docker.docker_container:
+        name: server2
+        image: ubuntu:latest
+        networks: 
+          - name: ansible_lab_net
+        command: ["sleep", "infinity"]
+        state: started
+        privileged: true
+      become: yes
+      become_user: root
+
+    - name: Start Docker Container server3
+      community.docker.docker_container:
+        name: server3
+        image: ubuntu:latest
+        networks: 
+          - name: ansible_lab_net
+        command: ["sleep", "infinity"]
+        state: started
+        privileged: true
+      become: yes
+      become_user: root
+
+    # Standardized configuration: Update and install essential packages
+    - name: Update apt cache on containers
+      community.docker.docker_container_exec:
+        container: "{{ item }}"
+        command: apt-get update
+      loop:
+        - server1
+        - server2
+        - server3
+
+    - name: Install essential packages on containers
+      community.docker.docker_container_exec:
+        container: "{{ item }}"
+        command: apt-get install -y curl vim ufw openssh-server
+      loop:
+        - server1
+        - server2
+        - server3
+
+    # 1. Disable unnecessary Filesystems
+    - name: Disable unnecessary filesystems
+      community.docker.docker_container_exec:
+        container: "{{ item.container }}"
+        command: "echo 'install {{ item.filesystem }} /bin/true' >> /etc/modprobe.d/CIS.conf"
+      loop:
+        - { container: "server1", filesystem: "freevxfs" }
+        - { container: "server1", filesystem: "jffs2" }
+        - { container: "server1", filesystem: "hfs"}
+        - { container: "server1", filesystem: "hfsplus" }
+        - { container: "server1", filesystem: "squashfs" }
+        - { container: "server2", filesystem: "freevxfs" }
+        - { container: "server2", filesystem: "jffs2" }
+        - { container: "server2", filesystem: "hfs" }
+        - { container: "server2", filesystem: "hfsplus" }
+        - { container: "server2", filesystem: "squashfs" }
+        - { container: "server3", filesystem: "freevxfs" }
+        - { container: "server3", filesystem: "jffs2" }
+        - { container: "server3", filesystem: "hfs" }
+        - { container: "server3", filesystem: "hfsplus" }
+        - { container: "server3", filesystem: "squashfs" }
+      loop_control:
+        label: "{{ item.container }} - {{ item.filesystem }}"
+      
+
+    # 2. Configure SSH Settings (Disable Root Login, PermitEmptyPasswords, etc...)
+    - name: Set SSH protocol to 2
+      community.docker.docker_container_exec:
+        container: "{{ item }}"
+        command: "sed -i 's/^#?Protocol.*/Protocol 2/' /etc/ssh/sshd_config"
+      loop:
+        - server1
+        - server2
+        - server3
+
+    - name: Disable SSH root login
+      community.docker.docker_container_exec:
+        container: "{{ item }}"
+        command: "sed -i 's/^#?PermitRootLogin.*/PermitRootLogin no/' /etc/ssh/sshd_config"
+      loop:
+        - server1
+        - server2
+        - server3
+
+    - name: Disable SSH empty passwords
+      community.docker.docker_container_exec:
+        container: "{{ item }}"
+        command: "sed -i 's/^#?PermitEmptyPasswords.*/PermitEmptyPasswords no/' /etc/ssh/sshd_config"
+      loop:
+        - server1
+        - server2
+        - server3 
+   
+    - name: Ensure SSH IgnoreRhosts is enabled
+      community.docker.docker_container_exec:
+        container: "{{ item }}"
+        command: "sed -i 's/^#?IgnoreRhosts.*/IgnoreRhosts yes/' /etc/ssh/sshd_config"
+      loop:
+        - server1
+        - server2
+        - server3
+
+    # 3. Configure Firewall with UFW
+    - name: Enable UFW firewall
+      community.docker.docker_container_exec:
+        container: "{{ item }}"
+        command: ufw enable
+      loop:
+        - server1
+        - server2
+        - server3
+      become: true
+      become_user: root
+  
+    # 4. Set Password Policy
+    - name: Set password minimum length to 12 characters
+      community.docker.docker_container_exec:
+        container: "{{ item }}"
+        command: "echo 'minlen = 12' >> /etc/security/pwquality.conf"
+      loop:
+        - server1
+        - server2
+        - server3
+
+    - name: Set password retry limit to 3
+      community.docker.docker_container_exec:
+        container: "{{ item }}"
+        command: "echo 'minlen = 12' >> /etc/security/pwquality.conf"
+      loop:
+        - server1
+        - server2
+        - server3
+
+    # 5. Banner and Message of the Day (MOTD)
+    - name: Configure /etc/motd with security message
+      community.docker.docker_container_exec:
+        container: "{{ item }}"
+        command: "echo '' > /etc/motd"
+      loop:
+        - server1
+        - server2
+        - server3
+
+    - name: Configure /etc/issue with security message
+      community.docker.docker_container_exec:
+        container: "{{ item }}"
+        command: "echo '' > /etc/issue"
+      loop:
+        - server1
+        - server2
+        - server3
+
+    - name: Configure /etc/issue.net with security message
+      community.docker.docker_container_exec:
+        container: "{{ item }}"
+        command: "echo '' > /etc/issue.net"
+      loop:
+        - server1
+        - server2
+        - server3
+
+    # 6. Network Settings - Enable SYN Cookies
+    - name: Enable TCP SYN Cookies
+      community.docker.docker_container_exec:
+        container: "{{ item }}"
+        command: "sysctl -w net.ipv4.tcp_syncookies=1"
+      loop:
+        - server1
+        - server2
+        - server3
+
+    # 7. File Permissions for Important Files
+    - name: Set permissions on /etc/passwd
+      community.docker.docker_container_exec:
+        container: "{{ item }}"
+        command: "sh -c 'chmod 644 /etc/passwd && chown root:root /etc/passwd'"
+      loop:
+        - server1
+        - server2
+        - server3
+
+    - name: Set permissions on /etc/shadow
+      community.docker.docker_container_exec:
+        container: "{{ item }}"
+        command: "sh -c 'chmod 640 /etc/shadow && chown root:shadow /etc/shadow'"
+      loop:
+        - server1
+        - server2
+        - server3
+
+    - name: Set permissions on /etc/gshadow
+      community.docker.docker_container_exec:
+        container: "{{ item }}"
+        command: "sh -c 'chmod 640 /etc/gshadow && chown root:shadow /etc/gshadow'"
+      loop:
+        - server1
+        - server2
+        - server3
+
+    - name: Set permissions on /etc/group
+      community.docker.docker_container_exec:
+        container: "{{ item }}"
+        command: "sh -c 'chmod 644 /etc/group && chown root:root /etc/group'"
+      loop:
+        - server1
+        - server2
+        - server3
