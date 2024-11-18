@@ -1,0 +1,141 @@
+# Playbook to set up Docker Containers and set them up with CIS Security Benchmarks
+- name: Set up Docker Containers and Apply CIS Benchmarks
+  hosts: localhost
+  become: yes
+  vars:
+    containers:
+      - server1
+      - server2
+      - server3
+    filesystem_modules:
+      - freevxfs
+      - jffs2
+      - hfs
+      - hfsplus
+      - squashfs
+
+  tasks:
+    - name: Create Docker Network
+      community.docker.docker_network:
+        name: ansible_lab_net
+        state: present
+
+    - name: Start Docker Containers
+      community.docker.docker_container:
+        name: "{{ item }}"
+        image: ubuntu:latest
+        networks:
+          - name: ansible_lab_net
+        command: ["sleep", "infinity"]
+        state: started
+        privileged: true
+      loop: "{{ containers }}"
+
+    - name: Update apt cache on containers
+      community.docker.docker_container_exec:
+        container: "{{ item }}"
+        command: apt-get update
+      loop: "{{ containers }}"
+
+    - name: Install essential packages on containers
+      community.docker.docker_container_exec:
+        container: "{{ item }}"
+        command: apt-get install -y curl vim ufw openssh-server
+      loop: "{{ containers }}"
+
+    - name: Create CIS.conf file in each container
+      community.docker.docker_container_exec:
+        container: "{{ item }}"
+        command: |
+          echo "{% for fs in filesystem_modules %}install {{ fs }} /bin/true{% endfor %}" > /etc/modprobe.d/CIS.conf
+      loop: "{{ containers }}"
+
+    # SSH Configuration
+    - name: Set SSH protocol to 2
+      community.docker.docker_container_exec:
+        container: "{{ item }}"
+        command: "sed -i 's/^#?Protocol.*/Protocol 2/' /etc/ssh/sshd_config"
+      loop: "{{ containers }}"
+
+    - name: Disable SSH root login
+      community.docker.docker_container_exec:
+        container: "{{ item }}"
+        command: "sed -i 's/^#?PermitRootLogin.*/PermitRootLogin no/' /etc/ssh/sshd_config"
+      loop: "{{ containers }}"
+
+    - name: Disable SSH empty passwords
+      community.docker.docker_container_exec:
+        container: "{{ item }}"
+        command: "sed -i 's/^#?PermitEmptyPasswords.*/PermitEmptyPasswords no/' /etc/ssh/sshd_config"
+      loop: "{{ containers }}"
+
+    - name: Enable SSH IgnoreRhosts
+      community.docker.docker_container_exec:
+        container: "{{ item }}"
+        command: "sed -i 's/^#?IgnoreRhosts.*/IgnoreRhosts yes/' /etc/ssh/sshd_config"
+      loop: "{{ containers }}"
+
+    # UFW Firewall Configuration
+    - name: Enable UFW firewall
+      community.docker.docker_container_exec:
+        container: "{{ item }}"
+        command: |
+          ufw default deny incoming &&
+          ufw default allow outgoing &&
+          ufw allow ssh &&
+          ufw enable
+      become: yes
+      become_user: root
+      loop: "{{ containers}}"
+
+    # Set Permissions for Critical Files
+    - name: Set permissions on /etc/passwd
+      community.docker.docker_container_exec:
+        container: "{{ item }}"
+        command: "sh -c 'chmod 644 /etc/passwd && chown root:root /etc/passwd'"
+      loop: "{{ containers }}"
+
+    - name: Set permissions on /etc/shadow
+      community.docker.docker_container_exec:
+        container: "{{ item }}"
+        command: "sh -c 'chmod 640 /etc/shadow && chown root:shadow /etc/shadow'"
+      loop: "{{ containers }}"
+
+    - name: Set permissions on /etc/gshadow
+      community.docker.docker_container_exec:
+        container: "{{ item }}"
+        command: "sh -c 'chmod 640 /etc/gshadow && chown root:shadow /etc/gshadow'"
+      loop: "{{ containers }}"
+
+    - name: Set permissions on /etc/group
+      community.docker.docker_container_exec:
+        container: "{{ item }}"
+        command: "sh -c 'chmod 644 /etc/group && chown root:root /etc/group'"
+      loop: "{{ containers }}"
+
+    # Banner and Message of the Day (MOTD)
+    - name: Configure /etc/motd with security message
+      community.docker.docker_container_exec:
+        container: "{{ item }}"
+        command: "echo 'Unauthorized access is prohibited' > /etc/motd"
+      loop: "{{ containers }}"
+
+    - name: Configure /etc/issue with security message
+      community.docker.docker_container_exec:
+        container: "{{ item }}"
+        command: "echo 'Authorized users only. Disconnect immediately if unauthorized.' > /etc/issue"
+      loop: "{{ containers }}"
+
+    - name: Configure /etc/issue.net with security message
+      community.docker.docker_container_exec:
+        container: "{{ item }}"
+        command: "echo 'Authorized users only. Disconnect immediately if unauthorized.' > /etc/issue.net"
+      loop: "{{ containers }}"
+
+    # Network Settings - Enable SYN Cookies
+    - name: Enable TCP SYN Cookies
+      community.docker.docker_container_exec:
+        container: "{{ item }}"
+        command: "sysctl -w net.ipv4.tcp_syncookies=1"
+      loop: "{{ containers }}"
+
