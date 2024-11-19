@@ -5,13 +5,19 @@ Now that we understand how Ansible can work on a single machine, how can we use 
 # WSL Steps
 First we are going to install Docker on our system. You can do this from Docker's official [website](https://docker.com)
 
-Once we have Docker Desktop installed, we are then going to install wsl through Powershell. Here's how:
+DOnce we have Docker Desktop installed, we are then going to install wsl through Powershell. Here's how:
  - *wsl --install*
+   
+![wsla1](https://github.com/user-attachments/assets/dac9a988-ff0a-43a8-b5c8-2a4a13eed9ae)
 
 After installing wsl and create a UNIX user, we need to ensure that Docker is running and is integrated with WSl. On the Docker Desktop application, head **Settings > Resources > WSL Integration** and enable Docker for the distro shown.
 
+![wsla2](https://github.com/user-attachments/assets/f24f712f-2647-432c-93eb-ac8daa4a603e)
+
 Now we can finally verify within our WSL session with the command:
  - *docker --version*
+
+![wsla3](https://github.com/user-attachments/assets/6dbec798-b359-47e3-a36e-b01e5fc587f2)
 
 I experienced some network issues with WSL so here is the troubleshooting I did incase any of your experiences this as well:
 
@@ -19,9 +25,14 @@ I wasn't able to update anything so I tried to ping google.com and it wouldn't r
  - *sudo nano /etc/resolv.conf*
    - nameserver 8.8.8.8 #Google DNS
    - nameserver 1.1.1.1 #Cloudflare DNS
+
+![wsla4](https://github.com/user-attachments/assets/875c3245-8939-47fc-bfa3-c4487a691d7e)
+
  - *sudo nano /etc/wsl.conf
    - [network]
-   - generateResolvConf = false 
+   - generateResolvConf = false
+
+![wsla5](https://github.com/user-attachments/assets/21799e32-ecf7-4b69-86b3-1a101545cfe6)
 
 After this you can shutdown out of your instance and start a new shell. Now that our network issues are fixed, we can go about updating our environment to support Ansible.
  - *wsl -d ubuntu*
@@ -29,6 +40,8 @@ After this you can shutdown out of your instance and start a new shell. Now that
  - *sudo apt install -y software-properties-common*
  - *sudo add-apt-repository --yes --update ppa:ansible/ansible*
  - *sudo apt update*
+
+![wsl6](https://github.com/user-attachments/assets/4ec60969-0163-44a0-b3ca-9b2ef6cc54f4)
 
 Now that our environment is set, we can install Python3-Pip and Ansible. Run the following command to do so:
  - *sudo apt install -y ansible python3-pip*
@@ -47,30 +60,54 @@ You can get the yaml file for this lab from my github with the following command
 With the playbook yaml file on our system, we can now use ansible to create our new Docker containers with our benchmarks.
  - *ansible-playbook docker_wsl.yml --ask-become-pass*
 
+![wsl12](https://github.com/user-attachments/assets/acd011d6-d257-4508-97cf-675cbce64c28)
+![wsl13](https://github.com/user-attachments/assets/13f32f6d-f60f-484a-8069-9e8ea28fdcd3)
+
 When first running the command you will be prompted to proivde your BECOME pass (this is your normal pass).
+
+![wsla14](https://github.com/user-attachments/assets/15b41e4c-b91c-41cd-adaf-499106528eec)
 
 The file should run successfully and show that each container is now created when you check on Docker Desktop.
 
-Now we are going to verify that our configurations have been applied. We can do this through two ways, either going into each container and checking manually or doing another Ansible playbook.
+Now we are going to verify that our configurations have been applied.
 
 First we'll go through manually to ensure our changes have been made. Here is the command to sign onto one of your containers:
  - *docker exec -it server1 bash*
 
 After getting on the container we'll run the following commands to ensure we receive an output, knowing our configs stayed:
  - *grep '^Protocol 2' /etc/ssh/sshd_config*
+ - *grep '^IgnoreRhosts' /etc/ssh/sshd_config*
+ - *grep '^PermitEmptyPasssword' /etc/ssh/sshd_config*
+ - *grep '^PermitRootLogin' /etc/ssh/sshd_config*
+   
+![wsla6](https://github.com/user-attachments/assets/759a2eab-fe34-4411-bd61-536e25fd5e43)
+
  - *ufw status*
+   
+ ![wsla10](https://github.com/user-attachments/assets/b0b4a9e2-2332-46a8-a664-61d7b7c04ead)
+
+ - *cat /etc/issue*
+ - *cat /etc/issue.net*
+ - cat /etc/motd
+   
+![wsla7](https://github.com/user-attachments/assets/e24a106d-05de-4920-820e-97751e50d92b)
+
+ - cat /etc/modprobe.d/CIS.conf
+   
+![wsl11](https://github.com/user-attachments/assets/72436c8d-fff7-43be-9c41-9d60065e7a15)
+
+ - sysctl net.ipv4.tcp_syncookies
+   
+ ![wsla8](https://github.com/user-attachments/assets/5ab36386-6d22-4fac-9da2-e49e5de76e77)
+
  - *ls -l /etc/passwd | grep '^-rw-r--r--'*
  - *ls -l /etc/shadow | grep '^-rw-r-----'*
  - *ls -l /etc/gshadow | grep '^-rw-r-----'*
  - *ls -l /etc/group | grep '^-rw-r--r--'*
 
-Here is another Ansible playbook used for verifying our CIS configurations on our Docker containers. Feel free to pull the new playbook with this command:
- - *wget https://raw.githubusercontent.com/STaj-55/Ansible-Workshop/main/verify.yml*
+![wsla9](https://github.com/user-attachments/assets/860188f1-f47b-456d-a6f0-ddee504d1063)
 
-We can run this with the same command as before, just replacing our playbook file:
- - *ansible-playbook verify.yml --ask-become-pass*
-
-As you can see by its output, all configurations we have made have been successful. I hope you enjoyed learning about Ansible and it's cool capabilities.
+As you can see by our screenshots, all configurations we have made have been successful. I hope you enjoyed learning about Ansible and it's cool capabilities.
 
 # macOS Steps
 First we are going to install Docker on our system. You can do so from Docker's official [website](https://docker.com).
